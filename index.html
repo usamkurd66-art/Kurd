@@ -1,0 +1,426 @@
+/**
+ * CyberShield - Backend Server (All-in-One)
+ * =========================================
+ * ئەم فایلە هەموو بەشەکانی پشتەوەی ماڵپەڕەکە لەخۆدەگرێت:
+ * - JWT authentication
+ * - Rate limiting
+ * - Vulnerability reporting
+ * - Encryption/Decryption
+ * - Security headers (Helmet, CORS)
+ */
+
+const express = require('express');
+const helmet = require('helmet');
+const cors = require('cors');
+const rateLimit = require('express-rate-limit');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { body, validationResult } = require('express-validator');
+const crypto = require('crypto');
+require('dotenv').config();
+
+const app = express();
+
+// ========================
+// 1. پێکهێنانی ڕێکخستنەکان (Configuration)
+// ========================
+const PORT = process.env.PORT || 5000;
+const JWT_SECRET = process.env.JWT_SECRET || 'cybershield_super_secret_key_change_this_in_production_2025';
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex').slice(0, 32);
+const BCRYPT_ROUNDS = 12;
+
+// ========================
+// 2. میدڵوێرەکانی ئاسایش (Security Middleware)
+// ========================
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+    },
+  },
+}));
+
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGIN || '*',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// Rate limiting گشتی بۆ هەموو داواکارییەکان
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: { error: 'زۆر داواکاری، تکایە دواتر هەوڵبدەوە' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(globalLimiter);
+
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// ========================
+// 3. یارمەتیدەرەکان (Helpers)
+// ========================
+
+// ئینکریپتکردنی داتای هەستیار (AES-256-GCM)
+function encryptSensitiveData(text) {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'utf8'), iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag();
+  return iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted;
+}
+
+// دیکریپتکردن
+function decryptSensitiveData(encryptedPackage) {
+  const [ivHex, tagHex, encryptedText] = encryptedPackage.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const authTag = Buffer.from(tagHex, 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'utf8'), iv);
+  decipher.setAuthTag(authTag);
+  let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
+
+// دروستکردنی JWT token
+function generateToken(userId, username, role) {
+  return jwt.sign(
+    { id: userId, username, role },
+    JWT_SECRET,
+    { expiresIn: '2h' }
+  );
+}
+
+// میدڵوێری پشتڕاستکردنەوەی JWT
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'دەستپێگەیشتن ڕەتکراوە، token نییە' });
+  }
+  
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'token نادروستە یان کۆتایی هاتووە' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// ========================
+// 4. داتای دەستکرد (Mock Data)
+// ========================
+// بەکارهێنەری نموونەیی (لە دۆخی ڕاستەقینە database بەکاربهێنە)
+const DEMO_USER = {
+  id: 1,
+  username: 'security_admin',
+  password: 'CyberShield@2025', // وشەی نهێنی: دەبێت bcrypt بکرێت
+  role: 'admin'
+};
+
+// هاشی وشەی نهێنی بۆ بەراوردکردن (پێشوەختە هاش کراوە)
+const DEMO_PASSWORD_HASH = '$2a$12$LqZqLZqLZqLZqLZqLZqLZqLZqLZqLZqLZqLZqLZqLZqLZqLZqLZq'; 
+// نموونەیی - لە کاتی یەکەم جێبەجێکردندا bcrypt.hashSync(DEMO_USER.password, BCRYPT_ROUNDS) بەکاربهێنە
+
+// لیستی ڕاپۆرتەکان (لە دۆخی ڕاستەقینە database)
+let reports = [];
+
+// ========================
+// 5. ڕاوتەکان (Routes)
+// ========================
+
+// ---- چاودێری تەندروستی (Health Check) ----
+app.get('/health', (req, res) => {
+  res.json({
+    status: '🛡️ CyberShield API active',
+    timestamp: new Date().toISOString(),
+    version: '2.0.0',
+    uptime: process.uptime()
+  });
+});
+
+// ---- لاپەڕەی سەرەکی API ----
+app.get('/', (req, res) => {
+  res.json({
+    name: 'CyberShield Security API',
+    description: 'بەهێزترین پلاتفۆرمی سایبەر سکیوڕیتی',
+    endpoints: {
+      auth: {
+        login: 'POST /api/login',
+        verify: 'GET /api/verify',
+        protected: 'GET /api/protected'
+      },
+      reports: {
+        submit: 'POST /api/report',
+        list: 'GET /api/reports',
+        details: 'GET /api/report/:id'
+      },
+      tools: {
+        hash: 'POST /api/tools/hash',
+        encrypt: 'POST /api/tools/encrypt',
+        decrypt: 'POST /api/tools/decrypt'
+      },
+      security: {
+        headers: 'GET /api/security-headers',
+        csp: 'GET /api/csp-report'
+      }
+    }
+  });
+});
+
+// ========== ئۆتۆنتیکەیشن (Authentication) ==========
+// سنوورداری تایبەت بۆ login: ٥ هەوڵ لە ١٠ خولەکدا
+const loginLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: { error: 'زۆر هەوڵی شکستخواردوو، تکایە ١٠ خولەک بوەستە' }
+});
+
+app.post('/api/login', loginLimiter, [
+  body('username').trim().notEmpty().withMessage('ناوی بەکارهێنەر پێویستە'),
+  body('password').isLength({ min: 6 }).withMessage('وشەی نهێنی باکوڕ ٦ پیت'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  
+  const { username, password } = req.body;
+  
+  // بەراوردکردنی وشەی نهێنی (بە bcrypt لە دۆخی ڕاستەقینەدا)
+  if (username === DEMO_USER.username && password === DEMO_USER.password) {
+    const token = generateToken(DEMO_USER.id, DEMO_USER.username, DEMO_USER.role);
+    return res.json({
+      success: true,
+      token,
+      user: { id: DEMO_USER.id, username: DEMO_USER.username, role: DEMO_USER.role },
+      expiresIn: 7200,
+      message: 'چوونەژوورەوە سەرکەوتوو بوو'
+    });
+  }
+  
+  res.status(401).json({ error: 'ناوی بەکارهێنەر یان وشەی نهێنی هەڵەیە' });
+});
+
+// پشتڕاستکردنەوەی token
+app.get('/api/verify', authenticateToken, (req, res) => {
+  res.json({ valid: true, user: req.user });
+});
+
+// ڕاوتەی پارێزراو بۆ تاقیکردنەوە
+app.get('/api/protected', authenticateToken, (req, res) => {
+  res.json({ 
+    message: 'ئەمە ڕاوتەیەکی پارێزراوە',
+    user: req.user,
+    accessGranted: true 
+  });
+});
+
+// ========== ڕاپۆرتی بێبەری (Vulnerability Reports) ==========
+// سنوورداری ڕاپۆرت: ٣ ڕاپۆرت لە کاتژمێرێکدا
+const reportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  message: { error: 'زۆر ڕاپۆرتت ناردووە، تکایە دواتر هەوڵبدەوە' }
+});
+
+app.post('/api/report', reportLimiter, [
+  body('title').trim().isLength({ min: 5, max: 200 }).escape(),
+  body('description').trim().isLength({ min: 10, max: 5000 }).escape(),
+  body('email').optional().isEmail().normalizeEmail(),
+  body('severity').isIn(['low', 'medium', 'high', 'critical']),
+  body('reporterName').optional().trim().escape(),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  
+  const { title, description, email, severity, reporterName } = req.body;
+  
+  // ئەگەر ئیمەیڵ هەبێت، بە نهێنی هاش بکە
+  const encryptedEmail = email ? encryptSensitiveData(email) : null;
+  
+  const reportId = `CS-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  const newReport = {
+    id: reportId,
+    title,
+    description,
+    severity,
+    reporterName: reporterName || 'نەناسراو',
+    email: encryptedEmail,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+    ip: req.ip
+  };
+  
+  reports.unshift(newReport); // زیادکردن بۆ سەرەتا
+  
+  // لە دۆخی ڕاستەقینە، ڕاپۆرتەکە لە database هەڵبگرە
+  
+  console.log(`[+] ڕاپۆرتێکی نوێ: ${reportId} | ${severity} | ${title}`);
+  
+  res.status(201).json({
+    success: true,
+    reportId: reportId,
+    message: '✅ ڕاپۆرتەکەت وەرگیرا، تیمی ئاسایش پێداچوونێکی پێدەکات',
+    submittedAt: newReport.createdAt
+  });
+});
+
+// وەرگرتنی هەموو ڕاپۆرتەکان (تەنها بۆ ئەدمین)
+app.get('/api/reports', authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'دەستپێگەیشتن تەنها بۆ ئەدمینە' });
+  }
+  
+  // لە دۆخی ڕاستەقینە، پێویستە داتاکانی database وەربگریت
+  const safeReports = reports.map(r => ({
+    ...r,
+    email: r.email ? '🔒 encrypted' : null
+  }));
+  
+  res.json({
+    count: reports.length,
+    reports: safeReports
+  });
+});
+
+// وەرگرتنی ڕاپۆرتێک بە ID
+app.get('/api/report/:id', authenticateToken, (req, res) => {
+  const report = reports.find(r => r.id === req.params.id);
+  if (!report) {
+    return res.status(404).json({ error: 'ڕاپۆرت نەدۆزرایەوە' });
+  }
+  
+  if (req.user.role !== 'admin' && report.reporterName !== req.user.username) {
+    return res.status(403).json({ error: 'ئەجازتت نییە ئەم ڕاپۆرتە ببینیت' });
+  }
+  
+  res.json(report);
+});
+
+// ========== ئامرازەکانی سایبەر سکیوڕیتی ==========
+// ئامرازی هاشکردن
+app.post('/api/tools/hash', [
+  body('text').trim().notEmpty().withMessage('دەق پێویستە'),
+  body('algorithm').optional().isIn(['sha256', 'sha512', 'md5'])
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  
+  const { text, algorithm = 'sha256' } = req.body;
+  let hash;
+  
+  if (algorithm === 'sha256') {
+    hash = crypto.createHash('sha256').update(text).digest('hex');
+  } else if (algorithm === 'sha512') {
+    hash = crypto.createHash('sha512').update(text).digest('hex');
+  } else if (algorithm === 'md5') {
+    hash = crypto.createHash('md5').update(text).digest('hex');
+  }
+  
+  res.json({ algorithm, input: text, hash, timestamp: new Date().toISOString() });
+});
+
+// ئامرازی ئینکریپت
+app.post('/api/tools/encrypt', [
+  body('text').trim().notEmpty().withMessage('دەق پێویستە')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  
+  const encrypted = encryptSensitiveData(req.body.text);
+  res.json({ 
+    encrypted: encrypted,
+    algorithm: 'AES-256-GCM',
+    warning: 'هەر کلیلێکی ئینکریپت تایبەتە بەم سێرڤەرە'
+  });
+});
+
+// ئامرازی دیکریپت
+app.post('/api/tools/decrypt', [
+  body('encrypted').trim().notEmpty().withMessage('داتای ئینکریپتکراو پێویستە')
+], async (req, res) => {
+  try {
+    const decrypted = decryptSensitiveData(req.body.encrypted);
+    res.json({ decrypted });
+  } catch (error) {
+    res.status(400).json({ error: 'داتای ئینکریپتکراو نادروستە یان ناتوانرێت دیکریپت بکرێت' });
+  }
+});
+
+// ========== تایبەتمەندییەکانی ئاسایش ==========
+// پیشاندانی هێدرەکانی ئاسایش
+app.get('/api/security-headers', (req, res) => {
+  res.json({
+    headers: res.getHeaders(),
+    recommendations: [
+      'Use HTTPS only',
+      'Enable HSTS',
+      'Set X-Frame-Options: DENY',
+      'Set X-Content-Type-Options: nosniff'
+    ]
+  });
+});
+
+// گیرانی ڕاپۆرتی CSP
+app.post('/api/csp-report', express.json({ type: 'application/csp-report' }), (req, res) => {
+  console.log('CSP Violation:', req.body);
+  res.status(204).end();
+});
+
+// ========================
+// 6. هەڵگیرسکەرەکان (Error Handlers)
+// ========================
+app.use((req, res) => {
+  res.status(404).json({ 
+    error: 'ڕێگەکە نەدۆزرایەوە',
+    path: req.path,
+    suggestion: 'سەردانی / بکە بۆ بینینی لیستی ڕاوتەکان'
+  });
+});
+
+app.use((err, req, res, next) => {
+  console.error('❌ Server Error:', err.stack);
+  res.status(500).json({ 
+    error: 'هەڵەی ناوەکی ڕوویدا',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'تکایە دواتر هەوڵبدەوە'
+  });
+});
+
+// ========================
+// 7. دەستپێکردنی سێرڤەر
+// ========================
+app.listen(PORT, () => {
+  console.log(`
+╔════════════════════════════════════════════════╗
+║     🛡️  CyberShield Backend Server  🛡️        ║
+╠════════════════════════════════════════════════╣
+║  Port: ${PORT}                                      ║
+║  Status: ✅ Running                             ║
+║  API Docs: http://localhost:${PORT}/              ║
+║  Health: http://localhost:${PORT}/health         ║
+╠════════════════════════════════════════════════╣
+║  Default Login:                                 ║
+║  Username: security_admin                       ║
+║  Password: CyberShield@2025                     ║
+╚════════════════════════════════════════════════╝
+  `);
+});
+
+module.exports = app;
