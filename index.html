@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ckb">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>نامه‌یه‌کی خۆشه‌ویستی - بۆ ئیلاف</title>
+    <style>
+        /* فۆنتی Rabar - فۆنتی ناسراوی کوردی */
+        @font-face {
+            font-family: 'Rabar';
+            src: url('https://cdn.fontcdn.ir/Fonts/Rabar/Rabar.eot');
+            src: url('https://cdn.fontcdn.ir/Fonts/Rabar/Rabar.eot?#iefix') format('embedded-opentype'),
+                 url('https://cdn.fontcdn.ir/Fonts/Rabar/Rabar.woff2') format('woff2'),
+                 url('https://cdn.fontcdn.ir/Fonts/Rabar/Rabar.woff') format('woff'),
+                 url('https://cdn.fontcdn.ir/Fonts/Rabar/Rabar.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+        
+        @font-face {
+            font-family: 'Rabar';
+            src: url('https://cdn.fontcdn.ir/Fonts/Rabar/Rabar-Bold.eot');
+            src: url('https://cdn.fontcdn.ir/Fonts/Rabar/Rabar-Bold.eot?#iefix') format('embedded-opentype'),
+                 url('https://cdn.fontcdn.ir/Fonts/Rabar/Rabar-Bold.woff2') format('woff2'),
+                 url('https://cdn.fontcdn.ir/Fonts/Rabar/Rabar-Bold.woff') format('woff'),
+                 url('https://cdn.fontcdn.ir/Fonts/Rabar/Rabar-Bold.ttf') format('truetype');
+            font-weight: bold;
+            font-style: normal;
+            font-display: swap;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: #b31b3b;
+            background: linear-gradient(145deg, #a11a38 0%, #cf2e4e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Rabar', 'Tahoma', 'Segoe UI', system-ui, sans-serif;
+            padding: 20px;
+        }
+
+        /* کارتی سەرەکی - سادە و ڕوون */
+        .card {
+            position: relative;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.96);
+            border-radius: 40px;
+            box-shadow: 0 25px 45px rgba(0,0,0,0.25);
+            max-width: 550px;
+            width: 100%;
+            padding: 40px 30px;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .page {
+            display: none;
+            animation: fadeSlide 0.4s ease forwards;
+        }
+
+        .active-page {
+            display: block;
+        }
+
+        @keyframes fadeSlide {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* نوسینەکان بە فۆنتی Rabar */
+        .greeting-message {
+            font-size: 1.7rem;
+            font-weight: bold;
+            font-family: 'Rabar', sans-serif;
+            color: #a11a38;
+            margin: 20px 0;
+            padding: 15px 10px;
+            line-height: 1.5;
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 30px 0 20px;
+            flex-wrap: wrap;
+        }
+
+        .love-btn {
+            background: #c72a4f;
+            border: none;
+            padding: 12px 32px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            font-family: 'Rabar', sans-serif;
+            border-radius: 50px;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 5px 0 #7a1a32;
+        }
+
+        .love-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 #7a1a32;
+        }
+
+        .love-btn.secondary {
+            background: #6b4b57;
+            box-shadow: 0 5px 0 #3e2b32;
+        }
+
+        .message-box {
+            background: #fff5f7;
+            border-radius: 30px;
+            padding: 25px 15px;
+            margin: 20px 0;
+            border: 1px solid #ffccd5;
+        }
+
+        .final-love {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #a11a38;
+            margin: 20px 0;
+            font-family: 'Rabar', sans-serif;
+        }
+
+        footer {
+            font-size: 0.85rem;
+            font-family: 'Rabar', sans-serif;
+            text-align: center;
+            margin-top: 30px;
+            padding: 10px 15px;
+            background: #ffeef2;
+            border-radius: 40px;
+            color: #9e2e4a;
+            display: inline-block;
+            width: auto;
+            line-height: 1.5;
+        }
+
+        .signature {
+            margin-top: 25px;
+            font-size: 0.85rem;
+            color: #ac3b58;
+            border-top: 1px solid #ffcdd9;
+            padding-top: 15px;
+            font-family: 'Rabar', sans-serif;
+        }
+
+        /* ئیمۆجی زۆر بچوک و پوخت - تەنها لەلای نوسینەکان */
+        .small-emoji {
+            font-size: 0.85rem;
+            display: inline-block;
+            margin: 0 3px;
+            opacity: 0.7;
+            vertical-align: middle;
+        }
+        
+        .title-emoji {
+            font-size: 0.9rem;
+            margin: 0 4px;
+            opacity: 0.6;
+        }
+        
+        hr {
+            margin: 15px 0;
+            border: none;
+            height: 1px;
+            background: linear-gradient(to right, transparent, #ffb7c5, transparent);
+        }
+
+        @media (max-width: 500px) {
+            .card { padding: 25px 18px; }
+            .love-btn { padding: 8px 20px; font-size: 1.1rem; }
+            .greeting-message { font-size: 1.3rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <!-- PAGE 1 -->
+    <div id="page1" class="page active-page">
+        <div>
+            <span class="small-emoji">💌</span>
+            <span class="small-emoji">💗</span>
+        </div>
+        <div class="greeting-message">
+            سڵاو خاتوونەکەم<br>
+            ئایا دەتەوێت شتێک ببینیت؟
+        </div>
+        <div>
+            <span class="small-emoji">🌸</span>
+            <span class="small-emoji">💘</span>
+            <span class="small-emoji">🌹</span>
+        </div>
+        <div class="btn-group">
+            <button class="love-btn" id="yesBtn">بەڵێ ئامادەم</button>
+            <button class="love-btn secondary" id="noBtn">نەخێر نامەوێت</button>
+        </div>
+        <div class="signature">
+            <span class="small-emoji">💖</span> نامەیەک لە دڵەوە <span class="small-emoji">💖</span>
+        </div>
+    </div>
+
+    <!-- PAGE 2 -->
+    <div id="page2" class="page">
+        <div>
+            <span class="small-emoji">💞</span>
+            <span class="small-emoji">🌷</span>
+        </div>
+        <div class="message-box">
+            <span style="font-size: 1.6rem; font-weight: bold; font-family: 'Rabar', sans-serif;">🗣️ دەی مادام</span>
+            <div style="font-size: 1.7rem; font-weight: bold; margin: 20px 0 10px; font-family: 'Rabar', sans-serif;">
+                خۆت ئامادەبکە
+            </div>
+            <div>
+                <span class="small-emoji">🌹</span>
+                <span class="small-emoji">💋</span>
+                <span class="small-emoji">💝</span>
+            </div>
+        </div>
+        <button class="love-btn" id="nextToFinal" style="margin-top: 10px;">بڕۆ بۆ پەیامی کۆتایی</button>
+        <div class="signature">
+            <span class="small-emoji">💋</span> ئەم نامەیە بۆ تۆیە <span class="small-emoji">💋</span>
+        </div>
+    </div>
+
+    <!-- PAGE 3 -->
+    <div id="page3" class="page">
+        <div>
+            <span class="small-emoji">💗</span>
+            <span class="small-emoji">💖</span>
+        </div>
+        <div class="final-love">
+            خۆشمدەوێیت ئیلافۆکەم
+        </div>
+        <div>
+            <span class="small-emoji">🌹</span>
+            <span class="small-emoji">✨</span>
+            <span class="small-emoji">🌹</span>
+        </div>
+        <div class="message-box" style="background: #fff5f8;">
+            <div style="font-size: 1.2rem;">با ئەم وشەیە یادگاری بێت</div>
+            <div style="font-size: 1.8rem; font-weight: bold; margin-top: 10px; font-family: 'Rabar', sans-serif;">
+                6/6/2026
+            </div>
+        </div>
+        <footer>
+            ئەم ماڵپەڕە لەلایەن <strong>وسام اسعد محمد</strong> دروستکراوە<br>
+            لەبەر خاتری چاوە جوانەکانی خاتوو <strong>ئیلاف</strong>
+        </footer>
+        <div class="signature" style="border-top: none; margin-top: 15px;">
+            <span class="small-emoji">💐</span> <span class="small-emoji">🌸</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    const page1 = document.getElementById('page1');
+    const page2 = document.getElementById('page2');
+    const page3 = document.getElementById('page3');
+    const yesBtn = document.getElementById('yesBtn');
+    const noBtn = document.getElementById('noBtn');
+    const nextToFinal = document.getElementById('nextToFinal');
+
+    function goToPage2() {
+        page1.classList.remove('active-page');
+        page2.classList.add('active-page');
+        page3.classList.remove('active-page');
+    }
+
+    yesBtn.addEventListener('click', goToPage2);
+    noBtn.addEventListener('click', goToPage2);
+
+    nextToFinal.addEventListener('click', () => {
+        page2.classList.remove('active-page');
+        page3.classList.add('active-page');
+    });
+</script>
+</body>
+</html>
